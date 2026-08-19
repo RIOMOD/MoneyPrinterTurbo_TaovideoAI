@@ -2504,13 +2504,14 @@ def _render_local_script_generation(params):
             "generate_script_and_terms",
             generate_script_and_terms,
         )
-        if "Error: " in script:
+        if isinstance(script, str) and "Error: " in script:
             st.error(tr(script))
-        elif "Error: " in terms:
+        elif isinstance(terms, str) and "Error: " in terms:
             st.error(tr(terms))
         else:
             st.session_state["video_script"] = script
-            st.session_state["video_terms"] = ", ".join(terms)
+            st.session_state["video_terms"] = ", ".join(terms) if isinstance(terms, (list, tuple)) else str(terms)
+            st.rerun(scope="app")
 
 
 def _render_loomloom_candidates():

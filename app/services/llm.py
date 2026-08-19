@@ -592,6 +592,54 @@ def _strip_code_fence(text: str) -> str:
     return t.strip()
 
 
+def _extract_string_list(response: str) -> list[str]:
+    import ast
+
+    if not response or not isinstance(response, str):
+        return []
+    cleaned = _strip_code_fence(response).strip()
+
+    # Try 1: standard json.loads
+    try:
+        data = json.loads(cleaned)
+        if isinstance(data, list) and all(isinstance(x, str) for x in data):
+            return [x.strip() for x in data if x.strip()]
+    except Exception:
+        pass
+
+    # Try 2: ast.literal_eval for single-quoted lists
+    try:
+        data = ast.literal_eval(cleaned)
+        if isinstance(data, (list, tuple)) and all(isinstance(x, str) for x in data):
+            return [x.strip() for x in data if x.strip()]
+    except Exception:
+        pass
+
+    # Try 3: Regex extract bracketed block [...]
+    match = re.search(r"\[.*?\]", response, re.DOTALL)
+    if match:
+        block = match.group()
+        try:
+            data = json.loads(block)
+            if isinstance(data, list) and all(isinstance(x, str) for x in data):
+                return [x.strip() for x in data if x.strip()]
+        except Exception:
+            pass
+        try:
+            data = ast.literal_eval(block)
+            if isinstance(data, (list, tuple)) and all(isinstance(x, str) for x in data):
+                return [x.strip() for x in data if x.strip()]
+        except Exception:
+            pass
+
+    # Try 4: Regex extract quoted strings
+    items = re.findall(r"['\"]([^'\"]{2,50})['\"]", response)
+    if items:
+        return [x.strip() for x in items if x.strip()]
+
+    return []
+
+
 def generate_terms(
     video_subject: str,
     video_script: str,
@@ -601,12 +649,12 @@ def generate_terms(
 ) -> List[str]:
     if match_script_order:
         goal = (
-            f"Generate {amount} chronological stock-video search terms that follow "
-            "the order of topics in the video script."
+            f"Extract exactly {amount} sequential visual topics from the video script "
+            "so the downloaded footage follows the narrative order."
         )
         ordering_rule = (
-            "6. keep the terms in the same order as the script narration; "
-            "earlier terms must describe earlier visual moments."
+            "6. the search terms must be in the exact order the visual scenes appear "
+            "in the script."
         )
         # 有序关键词模式下，示例数量要和 amount 保持一致，避免模型被固定
         # 的 4 个示例误导，导致长文案只返回少量关键词，影响素材覆盖度。
