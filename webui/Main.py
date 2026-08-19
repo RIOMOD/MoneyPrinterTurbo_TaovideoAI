@@ -2945,15 +2945,17 @@ def _render_script_settings(panel, params):
                         terms = _run_llm_read_operation(
                             "generate_terms",
                             lambda app_config_snapshot: llm.generate_terms(
-                                params.video_subject,
+                                params.video_subject or "video",
                                 params.video_script,
                                 amount=8 if params.match_materials_to_script else 5,
                                 match_script_order=params.match_materials_to_script,
                                 app_config=app_config_snapshot,
                             ),
                         )
-                        if "Error: " in terms:
+                        if isinstance(terms, str) and "Error: " in terms:
                             st.error(tr(terms))
+                        elif not terms:
+                            st.error("Không thể trích xuất từ khóa. Vui lòng thử đổi sang mô hình openai/gpt-oss-120b trong Cài Đặt hoặc đợi 2s rồi thử lại.")
                         else:
                             st.session_state["video_terms"] = ", ".join(terms)
 
